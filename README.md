@@ -1,12 +1,12 @@
-# Light_Analysis_Examples
-Software examples for Thorlabs' products that are used to measure light (e.g. CCS Series Spectrometers, PAX1000 Polarimeters, Wavefront Sensors, etc.)
+Automated Optical Alignment System
 
-## Repo Organization
-All examples are split up by programming language and product type. Directions on using specific examples are given within the folders.
+This repository contains Python scripts to automate fiber-to-chip alignment using a motion stage and a digital power meter. The system moves the translation stage incrementally based on real-time optical feedback until the reflection signal reaches a set target threshold.
+Features
 
-### C# and C++ Soft Requirements
+    Alignment Loop: Moves a Newport stage via serial commands until the reflection power reaches 70% of the target value.
 
-Guides written for these examples are written with Microsoft's Visual Studio in mind, which can be downloaded [here](https://visualstudio.microsoft.com/).
-Other IDEs can be used, but instructions are not provided in this repository.
+    Instrument Control: Interfaces directly with the Thorlabs TLPM driver over USB to read digital optical power in Watts.
 
+    Live Plotting & Logging: Tracks position and power data, generating a live graph with a target limit line and displaying a summary table at the end.
 
+    Diagnostics: Includes standalone scripts (check_motor.py and check_meter.py) to test hardware connections independently.
