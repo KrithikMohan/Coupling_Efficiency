@@ -10,3 +10,8 @@
 *.exe
 *.ilk
 *.obj
+hardware_config.local.json
+.venv/
+.idea/
+__pycache__/
+*.py[cod]

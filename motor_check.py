@@ -1,36 +1,38 @@
-import serial
 import time
+import serial
 
-# Hardware Configuration
-SERIAL_PORT = "COM3"
-BAUD_RATE = 19200
-TIMEOUT = 2
+# Connect to COM4
+ser = serial.Serial("COM4", 19200, timeout=1.0)
+time.sleep(0.2)
+ser.reset_input_buffer()
+ser.reset_output_buffer()
 
-print(f"Attempting to connect to Newport controller on {SERIAL_PORT}...")
+print("Pinging controller on COM4...")
 
-try:
-    motor = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=TIMEOUT)
-    
-    # 1. Check Communication (Tell Version)
-    motor.write(b"1VE\r\n")
-    time.sleep(0.1)
-    version_response = motor.readline().decode('utf-8').strip()
-    
-    if version_response:
-        print(f"[SUCCESS] Controller responded: {version_response}")
-        
-        # 2. Check Current Position (Tell Position)
-        motor.write(b"1TP\r\n")
-        time.sleep(0.1)
-        position_response = motor.readline().decode('utf-8').strip()
-        print(f"[STATUS] Current Axis 1 Position: {position_response}")
+for axis in [1, 2, 3]:
+    # 1. Query position with required '?'
+    ser.reset_input_buffer()
+    ser.write(f"{axis}TP?\r".encode("ascii"))
+    ser.flush()
+    time.sleep(0.05)
+
+    resp = ser.read_until(b"\r").decode("ascii", errors="replace").strip()
+
+    # 2. Fallback query firmware version if position is blank
+    if not resp:
+        ser.reset_input_buffer()
+        ser.write(f"{axis}VE?\r".encode("ascii"))
+        ser.flush()
+        time.sleep(0.05)
+        resp = ser.read_until(b"\r").decode("ascii", errors="replace").strip()
+
+    if resp:
+        print(f"SUCCESS -> Axis {axis} answered: {
+        resp!r}")
     else:
-        print("[WARNING] Port opened, but received no data back. Check wiring and power.")
-        
-except Exception as e:
-    print(f"[ERROR] Serial connection failed: {e}")
-    print("Ensure the COM port is correct and no other software is holding it open.")
-finally:
-    if 'motor' in locals() and motor.is_open:
-        motor.close()
-        print("Serial port closed.")
+
+        print(f"Axis {axis}: No response")
+
+
+ser.close()
+
