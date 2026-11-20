@@ -48,3 +48,46 @@ The meter driver checks an explicit constructor path, `THORLABS_TLPM_DLL`, saved
 ## Hardware state and verification
 
 The owner reports validated PM100USB dark-current readings and PZC200 relative movement and position queries. Multi-axis operation awaits verified straight-through 6P6C RJ12 data cables. See AGENT_CONTEXT.md for hardware details. Software-only checks do not constitute physical phase completion. No physical hardware was operated during this restructuring.
+
+## Optical Coupling & Alignment Specifications
+
+### 1. Positioning Tolerances & Step Resolution
+* **Working Clearance:** The X-axis must maintain a clearance of at most 14 nm from the lensed fiber facet to avoid physical collision while staying within the coupling waist.
+* **Actuation Resolution:** Fine motion uses relative `PR1` or `PR-1` commands; one controller count is one commanded microstep.
+* **Target Efficiency:** Alignment terminates once coupling efficiency reaches **65% to 70%**.
+
+---
+
+### 2. Coupling Efficiency Calculation
+Coupling efficiency ($\eta$) is calculated from the measured optical power relative to the calibrated input power and splitter throughput:
+
+$$\eta = \sqrt{\frac{P_{\text{measured}} - P_{\text{dark}}}{10\,\mu\text{W} \times 0.86}} \times 100\%$$
+
+Where:
+* $P_{\text{measured}}$: Real-time optical power sampled from the Thorlabs PM100USB.
+* $P_{\text{dark}}$: Calibrated dark noise floor / electronic offset (baseline reading with beam blocked).
+* $10\,\mu\text{W} \times 0.86$: Input reference power adjusted for the 86% transmission factor of the optical path / coupler split.
+
+---
+
+### 3. Peak Tracking & Direction Reversal Logic
+* **Asymmetric Signal Profile:** Optical coupling curves exhibit non-linear rises and sharp drop-offs due to spatial mode overlap and mechanical hysteresis.
+* **Peak Detection:**
+  1. The stage steps forward by 1 count and samples the power.
+  2. If efficiency increases, the optimizer continues in that direction.
+  3. When the signal falls, it reverses direction.
+  4. It measures again at the recovered peak before changing axis or step size.
+
+### Current stage origin and coupling-neighborhood simulation
+
+The controller origin was set at the user-identified back/left/bottom endpoints; see `stage_origin_log.json`. The user measured direction-dependent physical travel per controller count. Those calibration values, travel envelopes, and the proposed Z-then-Y-then-X return sequence are recorded in `stage_travel_config.json`.
+
+The original coupling neighborhood is estimated at X `+61450`, Y `+250000`, Z `-200000` controller counts. The `200000`–`245800` Y range describes a roughly 6 mm chip scan, not the Y hard travel maximum. The current fiber-present application envelope in the configuration is X `0..61450`, Y `0..416700`, Z `-484000..0` after the user supplied a revised measured upward clearance.
+
+Run `Simulate motor movement.py --simulate` for the software-only six-count search around the estimated coupling coordinates. Its synthetic voltages are in `simulated_voltage.csv`; the output log records absolute controller coordinates. Synthetic voltage does not verify physical motor movement or measured optical response.
+
+Running `Simulate motor movement.py` without `--simulate` now commands the live Z → Y → X return from controller origin `(0,0,0)` to `(X +61450, Y +250000, Z -200000)`. It verifies idle controllers, writes and reads back hardware travel limits, moves in bounded relative chunks, checks controller status and counts after each chunk, and writes `live_return_log.csv`. It can resume a partial run only when reported counts match the staged path. The lensed fiber must be out of the stage's path during this return. The X positive limit remains at `+61450` after the return. This is an open-loop controller count check; external observation is needed to verify physical position.
+
+**Z direction correction:** A manual upward move changed the reported Z count from `-484000` to `-260161`. Increasing Z count therefore tracked upward motion in that observation, contrary to the negative-up assumption used in the historical return. The live return and old negative-Z adjustment scripts are disabled in `stage_travel_config.json`. Re-establish the Z origin, physical direction, and clearances before reusing those commands.
+
+The current live-motion interlock in `stage_travel_config.json` blocks further Z movement: controller counts reached `-300000`, but physical height change was not observed. The user-supplied upward ceiling remains `-384000`; a further `-100000` command would exceed it.

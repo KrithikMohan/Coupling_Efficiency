@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--axes", type=int, nargs="+", default=[1, 2])
     parser.add_argument("--mock-stage", action="store_true")
     parser.add_argument("--dll-path")
-    parser.add_argument("--wavelength", type=float, default=1550.0)
+    parser.add_argument("--wavelength", type=float, default=1310.0)
     parser.add_argument("--samples", type=int, default=5)
     args = parser.parse_args()
     if args.samples < 1 or not math.isfinite(args.wavelength) or args.wavelength <= 0:
