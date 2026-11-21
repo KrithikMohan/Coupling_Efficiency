@@ -1,0 +1,10 @@
+{"time_utc": "2026-11-20T04:03:08.781584+00:00", "event": "run_started", "targets": {"X": 61450, "Y": 250000, "Z": 200000}, "limits": {"X": [-1, 61450], "Y": [-1, 416700], "Z": [-1, 250000]}}
+{"time_utc": "2026-11-20T04:03:10.028646+00:00", "event": "move_started", "axis": "Z", "before_count": -1, "commanded_delta": 200000}
+{"time_utc": "2026-11-20T04:03:15.130535+00:00", "event": "move_finished", "axis": "Z", "after_count": 200000}
+{"time_utc": "2026-11-20T04:03:16.538194+00:00", "event": "move_started", "axis": "Y", "before_count": -1, "commanded_delta": 250000}
+{"time_utc": "2026-11-20T04:03:22.677929+00:00", "event": "move_finished", "axis": "Y", "after_count": 250000}
+{"time_utc": "2026-11-20T04:03:24.101398+00:00", "event": "move_started", "axis": "X", "before_count": 0, "commanded_delta": 61440}
+{"time_utc": "2026-11-20T04:03:26.307984+00:00", "event": "move_finished", "axis": "X", "after_count": 61440}
+{"time_utc": "2026-11-20T04:03:26.309681+00:00", "event": "move_started", "axis": "X", "before_count": 61440, "commanded_delta": 10}
+{"time_utc": "2026-11-20T04:03:27.235251+00:00", "event": "move_finished", "axis": "X", "after_count": 61450}
+{"time_utc": "2026-11-20T04:03:27.923319+00:00", "event": "run_finished", "final_counts": {"X": 61450, "Y": 250000, "Z": 200000}}

@@ -1,0 +1,54 @@
+{
+  "timestamp_utc": "2026-11-20T08:10:10.693608+00:00",
+  "port": "COM4",
+  "command": "3JA-7 then 3ST",
+  "start_controller_counts": {
+    "1": 0,
+    "2": 307293,
+    "3": 1
+  },
+  "finish_controller_counts": {
+    "1": 0,
+    "2": 307293,
+    "3": -135519
+  },
+  "z_software_limits": [
+    -484000,
+    1
+  ],
+  "target_count": -99999,
+  "max_jog_seconds": 3.0,
+  "samples": [
+    {
+      "seconds": 0.348,
+      "controller_count": -6271
+    },
+    {
+      "seconds": 0.732,
+      "controller_count": -23055
+    },
+    {
+      "seconds": 1.116,
+      "controller_count": -41519
+    },
+    {
+      "seconds": 1.499,
+      "controller_count": -60047
+    },
+    {
+      "seconds": 1.883,
+      "controller_count": -78463
+    },
+    {
+      "seconds": 2.267,
+      "controller_count": -96959
+    },
+    {
+      "seconds": 2.684,
+      "controller_count": -115519
+    }
+  ],
+  "error_code": 0,
+  "physical_displacement": "User observed no Z movement on a ruler during this fastest-speed jog",
+  "interpretation": "Controller count changed by -135520 with error 0, but physical displacement was not observed; TP? is not position feedback"
+}

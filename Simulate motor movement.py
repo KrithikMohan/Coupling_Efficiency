@@ -1,4 +1,4 @@
-"""Return live motors to the supplied coordinates, or simulate a local search."""
+"""Drive real stages from fake voltage readings, or simulate stages in software."""
 
 import argparse
 import csv
@@ -25,9 +25,15 @@ SIMULATION_START = {"X": 61446, "Y": 249995, "Z": -200003}
 SIMULATION_PEAK = {"X": 61450, "Y": 250000, "Z": -200000}
 AXIS_IDS = {"X": 1, "Y": 2, "Z": 3}
 WAVELENGTH_NM = 1310.0
-LIVE_TARGET = {"X": 61450, "Y": 250000, "Z": -200000}
+LIVE_TARGET = {"X": 61450, "Y": 250000, "Z": 200000}
 LIVE_ORDER = ("Z", "Y", "X")
 LIVE_LOG = Path(__file__).with_name("live_return_log.csv")
+FAKE_LIVE_LOG = Path(__file__).with_name("fake_voltage_live_log.csv")
+FAKE_START = {"X": 0, "Y": 0, "Z": 0}
+FAKE_PEAK = {"X": 30000, "Y": 200000, "Z": 150000}
+FAKE_STEPS = {"X": 50000, "Y": 100000, "Z": 100000}
+FAKE_ORDER = ("Z", "Y", "X")
+FAKE_BOUNDS = {"X": (1000, 61450), "Y": (0, 416700), "Z": (0, 250000)}
 LOG_HEADER = ["timestamp_utc", "stage_mode", "x_position_steps", "y_position_steps", "z_position_steps", "voltage_v", "power_w", "signal_source"]
 
 
@@ -254,113 +260,59 @@ def record_without_movement(port: str, interval: float, output: Path) -> None:
         ser.close()
 
 
-def live_return(port: str) -> None:
-    """Move from the freshly zeroed hard-stop origin to the supplied position."""
-    config = json.loads(TRAVEL_CONFIG.read_text(encoding="utf-8"))
-    if (not config.get("z_direction_confirmed", False)
-            or not config.get("z_physical_motion_verified", False)
-            or not config.get("z_extended_clearance_verified", False)):
-        raise RuntimeError("Live motion disabled: extended Z clearance must be verified")
-    bounds = config["modes"]["fiber_at_coupling"]
-    if any(not bounds[axis][0] <= LIVE_TARGET[axis] <= bounds[axis][1] for axis in AXES):
-        raise ValueError("A live target is outside the configured travel bounds")
-    resuming = LIVE_LOG.exists()
+def fake_voltage(counts: dict[str, int]) -> float:
+    """Deterministic synthetic response with a peak inside each axis's limits."""
+    widths = {"X": 22000, "Y": 70000, "Z": 70000}
+    amplitudes = {"X": 0.05, "Y": 0.06, "Z": 0.07}
+    return 0.025 + sum(
+        amplitudes[axis] * math.exp(-((counts[axis] - FAKE_PEAK[axis]) / widths[axis]) ** 2)
+        for axis in AXES
+    )
 
-    with serial.Serial(port, 19200, timeout=1.0) as ser:
-        time.sleep(0.2)
-        start = {axis: read_number(ser, f"{AXIS_IDS[axis]}TP?") for axis in AXES}
-        print(f"Controller start counts: {start}", flush=True)
-        if not resuming and start != {axis: 0 for axis in AXES}:
-            raise RuntimeError("First live return requires the recorded 0,0,0 origin; no move sent")
-        if resuming:
-            if (start["Z"] > 0 or start["Z"] < LIVE_TARGET["Z"]
-                    or not 0 <= start["Y"] <= LIVE_TARGET["Y"]
-                    or not 0 <= start["X"] <= LIVE_TARGET["X"]
-                    or (start["Y"] != 0 and start["Z"] != LIVE_TARGET["Z"])
-                    or (start["X"] != 0 and (start["Y"], start["Z"]) != (LIVE_TARGET["Y"], LIVE_TARGET["Z"]))):
-                raise RuntimeError("Current counts do not match the staged return path; no move sent")
-            print(f"Resuming from controller counts: {start}", flush=True)
-        for axis in AXES:
-            status = query(ser, f"{AXIS_IDS[axis]}TS?")
-            if status not in (f"{AXIS_IDS[axis]}TS? @", f"{AXIS_IDS[axis]}TS? Q"):
-                raise RuntimeError(f"{axis} is not idle: {status}")
 
-        # Controller limits are volatile. Set and verify each before motion.
-        for axis in AXES:
-            number = AXIS_IDS[axis]
-            low, high = bounds[axis]
-            for command, value in (("SL", min(low, -1)), ("SR", max(high, 1))):
-                send(ser, f"{number}{command}{value}")
-                time.sleep(0.2)
-                check_error(ser, number, f"set {axis} {command}")
-                if read_number(ser, f"{number}{command}?") != value:
-                    raise RuntimeError(f"{axis} {command} limit did not read back")
+def run_fake_voltage_on_real_stage(port: str, output: Path) -> None:
+    """Move the real stage using fake voltage, without opening the meter."""
+    if port != "COM4":
+        raise ValueError("The live fake-voltage run is configured for COM4 only")
+    from alignment_routine import PZC200Stage, search_axis
 
-        with LIVE_LOG.open("a" if resuming else "w", newline="", encoding="utf-8") as file:
+    stage = PZC200Stage(port)
+    try:
+        start = stage.preflight()
+        if any(abs(start[axis]) > 16 for axis in AXES):
+            raise RuntimeError(f"Expected counts within 16 of physical origin, got {start}; no move sent")
+        print("REAL motors, FAKE voltage. No power-meter measurement is used.", flush=True)
+        print(f"Starting counts: {start}; synthetic peak: {FAKE_PEAK}", flush=True)
+        print(f"Search order: {FAKE_ORDER}; initial steps: {FAKE_STEPS}", flush=True)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open("w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
-            if not resuming:
-                writer.writerow(("timestamp_utc", "axis", "before_steps", "commanded_delta_steps", "after_steps"))
+            writer.writerow(("timestamp_utc", "event", "axis", "delta", "x", "y", "z", "fake_voltage_v"))
             file.flush()
-            for axis in LIVE_ORDER:
-                number = AXIS_IDS[axis]
-                target = LIVE_TARGET[axis]
-                current = read_number(ser, f"{number}TP?")
-                if current == target:
-                    continue
-                initial_status = query(ser, f"{number}TS?")
-                enabled_here = initial_status == f"{number}TS? @"
-                if enabled_here:
-                    send(ser, f"{number}MO")
-                    time.sleep(0.2)
-                    check_error(ser, number, f"enable {axis}")
-                if query(ser, f"{number}TS?") != f"{number}TS? Q":
-                    raise RuntimeError(f"{axis} motor is not ready")
-                try:
-                    while current != target:
-                        remaining = target - current
-                        chunk = min(abs(remaining), 5000 if axis != "X" else 1000)
-                        if chunk > 192:
-                            chunk = (chunk // 16) * 16
-                        delta = chunk if remaining > 0 else -chunk
-                        next_count = current + delta
-                        low, high = bounds[axis]
-                        if not low <= next_count <= high:
-                            raise RuntimeError(f"{axis} target {next_count} exceeds {low}..{high}")
-                        send(ser, f"{number}PR{delta}")
-                        deadline = time.monotonic() + 15.0
-                        while time.monotonic() < deadline:
-                            time.sleep(0.2)
-                            status = query(ser, f"{number}TS?")
-                            if status == f"{number}TS? Q":
-                                break
-                            if status != f"{number}TS? P":
-                                raise RuntimeError(f"{axis} unexpected status: {status}")
-                        else:
-                            raise TimeoutError(f"{axis} motion timed out")
-                        actual = read_number(ser, f"{number}TP?")
-                        check_error(ser, number, f"move {axis}")
-                        if actual != next_count:
-                            raise RuntimeError(f"{axis} reported {actual}, expected {next_count}")
-                        writer.writerow((datetime.now(timezone.utc).isoformat(timespec="milliseconds"), axis, current, delta, actual))
-                        file.flush()
-                        current = actual
-                        print(f"{axis}: {current}/{target}", flush=True)
-                except BaseException:
-                    send(ser, f"{number}ST")
-                    raise
-                finally:
-                    if enabled_here:
-                        send(ser, f"{number}MF")
 
-        final = {axis: read_number(ser, f"{AXIS_IDS[axis]}TP?") for axis in AXES}
-        if final != LIVE_TARGET:
-            raise RuntimeError(f"Unexpected final controller counts: {final}")
-        print(f"Controller target counts reached: {final}; physical displacement not measured", flush=True)
+            def measure(event: str, axis: str = "", delta: int = 0) -> tuple[float, float]:
+                counts = stage.positions()
+                voltage = fake_voltage(counts)
+                writer.writerow((datetime.now(timezone.utc).isoformat(), event, axis, delta,
+                                 counts["X"], counts["Y"], counts["Z"], voltage))
+                file.flush()
+                print(f"{event} {axis}: {counts}; fake voltage {voltage:.6f} V", flush=True)
+                return voltage, 0.0
 
+            best, _ = measure("start")
+            budget = [40]
+            for axis in FAKE_ORDER:
+                best, _ = search_axis(stage, axis, measure, FAKE_STEPS[axis], 25000,
+                                      1e-5, 101.0, budget, best, FAKE_BOUNDS)
+            final = stage.positions()
+            print(f"Fake-voltage search finished at {final}; final fake voltage {best:.6f} V", flush=True)
+            print(f"Log: {output}", flush=True)
+    finally:
+        stage.close()
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run", action="store_true", help="alias for the default live return")
+    parser.add_argument("--run", action="store_true", help="move real motors using synthetic voltage feedback")
     parser.add_argument("--simulate", action="store_true", help="use synthetic voltage and no hardware")
     parser.add_argument("--record-only", action="store_true", help="record real positions and meter values without moving")
     parser.add_argument("--port", default="COM4")
@@ -381,9 +333,12 @@ def main() -> None:
     if args.record_only:
         record_without_movement(args.port, args.interval, args.output)
         return
-    if not args.simulate:
-        live_return(args.port)
+    if args.run:
+        output = FAKE_LIVE_LOG if args.output == DEFAULT_LOG else args.output
+        run_fake_voltage_on_real_stage(args.port, output)
         return
+    if not args.simulate:
+        parser.error("Choose --run, --simulate, or --record-only")
     limits = {axis: getattr(args, f"{axis.lower()}_limits") for axis in AXES}
     if args.run and any(value is None for value in limits.values()):
         parser.error("Real movement requires --x-limits, --y-limits, and --z-limits")

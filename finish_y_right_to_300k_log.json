@@ -1,0 +1,20 @@
+{
+  "timestamp_utc": "2026-11-20T08:41:38.045216+00:00",
+  "controller_counts_before": {
+    "1": 0,
+    "2": 274320,
+    "3": -135519
+  },
+  "controller_counts_after": {
+    "1": 0,
+    "2": 300000,
+    "3": -135519
+  },
+  "y_software_limits": [
+    -1,
+    416700
+  ],
+  "command": "2PR25680",
+  "error_code": 0,
+  "physical_displacement": "observer to report"
+}

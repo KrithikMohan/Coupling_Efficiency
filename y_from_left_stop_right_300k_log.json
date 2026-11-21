@@ -1,0 +1,13 @@
+{
+  "user_confirmed_physical_start": "Y left mechanical stop",
+  "controller_counts_before": {"1": 0, "2": 0, "3": -135519},
+  "controller_counts_after_stop": {"1": 0, "2": 274320, "3": -135519},
+  "restored_y_software_limits": [-1, 416700],
+  "requested_command": "2PR300000",
+  "stop_command": "2ST after first status query timed out",
+  "controller_error_after_stop": 50,
+  "controller_error_meaning": "Communication overflow",
+  "user_observed_physical_motion": "Y moved right visibly",
+  "remaining_controller_counts_to_target": 25680,
+  "note": "The run was interrupted before the requested count; no physical distance was measured."
+}

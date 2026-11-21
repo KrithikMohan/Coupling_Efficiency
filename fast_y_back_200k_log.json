@@ -1,0 +1,60 @@
+{
+  "timestamp_utc": "2026-11-20T08:17:26.007053+00:00",
+  "controller_counts_before": {
+    "1": 0,
+    "2": 307293,
+    "3": -135519
+  },
+  "controller_counts_after": {
+    "1": 0,
+    "2": 107296,
+    "3": -135519
+  },
+  "y_software_limits": [
+    -1,
+    416700
+  ],
+  "command": "2JA-7; 2ST; optional 2PR trim",
+  "jog_samples": [
+    {
+      "elapsed_seconds": 0.412,
+      "y_count": 300989
+    },
+    {
+      "elapsed_seconds": 0.828,
+      "y_count": 281133
+    },
+    {
+      "elapsed_seconds": 1.244,
+      "y_count": 261021
+    },
+    {
+      "elapsed_seconds": 1.644,
+      "y_count": 241005
+    },
+    {
+      "elapsed_seconds": 2.06,
+      "y_count": 221805
+    },
+    {
+      "elapsed_seconds": 2.477,
+      "y_count": 201725
+    },
+    {
+      "elapsed_seconds": 2.892,
+      "y_count": 181645
+    },
+    {
+      "elapsed_seconds": 3.308,
+      "y_count": 161613
+    },
+    {
+      "elapsed_seconds": 3.724,
+      "y_count": 141613
+    }
+  ],
+  "y_after_jog": 121565,
+  "trim_delta": -14272,
+  "physical_displacement": "User observed no physical Y displacement during the fastest-speed move",
+  "interpretation": "Controller count changed by -199997 with error 0, but no physical Y motion was observed; TP? is not position feedback"
+}

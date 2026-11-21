@@ -1,0 +1,71 @@
+{
+  "reference": "Controller positions were set to 0,0,0 at the user-identified negative/back/left/bottom endpoints; see stage_origin_log.json",
+  "source": "User measured change in controller step count over physical travel distance; direction-dependent values converted to nm per controller count",
+  "default_mode": "fiber_at_coupling",
+  "z_direction_confirmed": true,
+  "z_positive_count_raises_stage_observed": true,
+  "z_physical_motion_verified": true,
+  "z_extended_clearance_verified": false,
+  "z_possible_stall_observed": true,
+  "z_fast_jog_physical_motion_verified": false,
+  "y_fast_jog_physical_motion_verified": false,
+  "y_possible_stall_observed": true,
+  "y_left_stop_referenced_at_controller_zero": true,
+  "y_positive_count_moves_right_observed": true,
+  "modes": {
+    "fiber_at_coupling": {
+      "X": [0, 61450],
+      "Y": [0, 416700],
+      "Z": null
+    },
+    "fiber_retracted": {
+      "X": [0, 512100],
+      "Y": [0, 416700],
+      "Z": null
+    }
+  },
+  "nm_per_controller_count": {
+    "X": {"positive": 24.4, "negative": 29.9},
+    "Y": {"positive": 24.4, "negative": 30.0},
+    "Z": {"positive": 30.0, "negative": 28.6}
+  },
+  "historical_z_controller_limits_steps": [-484000, 1],
+  "nominal_coupling_z_steps": -192000,
+  "original_coupling_neighborhood_steps": {
+    "X": 61450,
+    "Y": 250000,
+    "Z": -200000
+  },
+  "corrected_return_target_steps": {
+    "X": 61450,
+    "Y": 250000,
+    "Z": 200000
+  },
+  "original_coupling_ranges_steps": {
+    "Y": [212000, 288000],
+    "Z": [-209500, -192000]
+  },
+  "y_chip_scan_estimate_steps": [200000, 245800],
+  "proposed_startup_sequence": [
+    {"axis": "Z", "target_steps": -195000, "purpose": "raise chip before lateral motion"},
+    {"axis": "Y", "target_steps": 250000, "purpose": "reach original lateral neighborhood"},
+    {"axis": "X", "target_steps": 61450, "purpose": "approach former coupling plane with live meter feedback"}
+  ],
+  "notes": [
+    "X maximum with fiber present is a hard application bound; fiber_retracted must be selected only when the fiber is physically retracted.",
+    "The 200000-245800 Y range estimates a 6 mm chip scan, not the allowed maximum. The application Y bound of 416700 uses the conservative end of the user-supplied 12.5 mm hard-travel estimate.",
+    "The user supplied a revised measured Z upward limit of -484000 and authorized a further -100000-count raise from -384000. Re-read hardware limits before every run.",
+    "After the user manually raised the stage, Z controller count changed from -484000 to -260161. This observation indicates positive count change corresponds to upward physical motion in the current setup, contradicting the old negative-up assumption.",
+    "The Z numeric limits and historical targets in this file were defined using the contradicted direction assumption. They must not be used as physical clearance limits until the Z origin and direction are re-established.",
+    "A +4992-count Z probe changed the controller readback from -260161 to -255169 with error 0, but the user did not see physical movement; expected travel from supplied calibration is about 0.15 mm.",
+    "A +200000 then -200000 Z count test returned the controller to -483998. The user reported only slight upward physical movement, without identifying which leg or measuring its distance. Do not infer actual displacement from the controller count.",
+    "User descriptions of 16510.mp4 and 16508.mp4 show the Z stage stopping while piezo drive buzzing continued. This is consistent with possible mechanical stall or loss of drive transfer; cause not established from descriptions alone. Do not resume automatic Z travel without independent displacement feedback or direct physical inspection.",
+    "The controller still reports Z software limits -484000..1. Live Z scripts based on negative-up motion are disabled.",
+    "A JA-7 fastest-speed negative Z jog changed TP? from 1 to -135519 with error 0, but the user observed no movement against a ruler. Z physical position cannot be inferred from TP? and automated Z moves remain disabled pending independent physical verification.",
+    "A JA-7 fastest-speed negative Y jog followed by PR trim changed TP? from 307293 to 107296 with error 0, but the user observed no physical Y displacement. Automated Y travel is disabled; a controller count change is not evidence of physical movement.",
+    "The user-provided bdhammel/python_newport_controller library targets 8742/8745 Picomotor USB controllers; pyepics/newportxps targets XPS Ethernet socket/FTP controllers. Neither implements the PZC200 RS-485 ASCII command set.",
+    "epics-motor/motorNewport lists other Newport controllers, not PZC200. danielsentenac/opticsbenchui has an NSC200/PZC200-labeled driver using the same addressed PR, TP?, TS?, TE?, and ST commands as this project, but it also uses VA and PA commands absent from the PZC200 manual and labels its feature CLOSED_LOOP despite the PZA12 being open loop. Do not substitute that driver or infer physical motion from its count reads.",
+    "The user physically placed Y at its leftmost stop, then controller Y was set to zero and software limits -1..416700 restored and saved. A positive PR300000 move was stopped at count 274320 after one status-query timeout; TE? reported communication overflow 50. The user observed Y moving visibly right. A bounded PR25680 finishing move then reached controller count 300000 with error 0. Physical travel distance was not measured during this run.",
+    "For the new from-zero return, the user confirmed positive Z counts raise the stage and selected +200000 as the target. The historical -200000 Z target remains above for provenance and must not be used as an upward move. The new motor_check.py requires controller counts 0,0,0 at the physical stops and uses the corrected target."
+  ]
+}

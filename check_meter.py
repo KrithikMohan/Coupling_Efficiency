@@ -1,6 +1,9 @@
-import time
-import sys
+"""Reusable PM100USB voltage/power reader and a five-sample live check."""
+
+import math
 import os
+import sys
+import time
 from pathlib import Path
 
 INTEROP_DIR = Path(r"C:\Program Files\IVI Foundation\VISA\VisaCom64\Primary Interop Assemblies")
@@ -8,53 +11,70 @@ NATIVE_DIR = Path(r"C:\Program Files\IVI Foundation\VISA\Win64\Bin")
 RESOURCE = "USB0::0x1313::0x8072::M01339668::INSTR"
 WAVELENGTH_NM = 1310.0
 
-print("=== THORLABS PM100USB LIVE POWER CHECK ===")
 
-print("Using installed Thorlabs .NET interop driver")
-inst = None
+class ThorlabsPM100:
+    def __init__(self, dll_path: str | None = None):
+        if dll_path is not None:
+            raise ValueError("This meter uses the installed Thorlabs .NET interop driver")
+        self.instrument = None
+        self._dll_directory = None
 
-try:
-    os.environ["PATH"] = str(NATIVE_DIR) + os.pathsep + os.environ["PATH"]
-    os.add_dll_directory(str(NATIVE_DIR))
-    sys.path.insert(0, str(INTEROP_DIR))
-    import clr
-    clr.AddReference("Thorlabs.TLPM_64.Interop")
-    from Thorlabs.TLPM_64.Interop import TLPM
+    def connect(self) -> str:
+        os.environ["PATH"] = str(NATIVE_DIR) + os.pathsep + os.environ["PATH"]
+        self._dll_directory = os.add_dll_directory(str(NATIVE_DIR))
+        sys.path.insert(0, str(INTEROP_DIR))
+        import clr
+        clr.AddReference("Thorlabs.TLPM_64.Interop")
+        from Thorlabs.TLPM_64.Interop import TLPM
 
-    inst = TLPM(RESOURCE, True, False)
-    print(f"Connected to: {RESOURCE}")
-    status = inst.setWavelength(WAVELENGTH_NM)
-    if status != 0:
-        raise RuntimeError(f"Setting wavelength failed with status {hex(status)}")
-    print(f"Wavelength: {WAVELENGTH_NM:g} nm")
-    status, unit = inst.getPowerUnit()
-    if status != 0 or unit != 0:
-        raise RuntimeError(f"Expected watts from meter; power unit status={hex(status)}, unit={unit}")
-    time.sleep(0.3)
+        self.instrument = TLPM(RESOURCE, True, False)
+        status, unit = self.instrument.getPowerUnit()
+        if status != 0 or unit != 0:
+            self.close()
+            raise RuntimeError(f"Expected watts from meter; status={hex(status)}, unit={unit}")
+        return RESOURCE
 
-    print("\nStreaming 5 live readings:")
-    for i in range(5):
-        status, raw_val = inst.measPower()
+    def set_wavelength(self, wavelength_nm: float) -> None:
+        status = self.instrument.setWavelength(wavelength_nm)
         if status != 0:
-            raise RuntimeError(f"Measurement failed with status {hex(status)}")
-        abs_v = abs(raw_val)
+            raise RuntimeError(f"Setting wavelength failed with status {hex(status)}")
 
-        if abs_v >= 1e-3:
-            scaled = f"{raw_val * 1e3:8.3f} mW"
-        elif abs_v >= 1e-6:
-            scaled = f"{raw_val * 1e6:8.3f} uW"
-        else:
-            scaled = f"{raw_val * 1e9:8.2f} nW"
+    def read_voltage(self) -> float:
+        status, value = self.instrument.measVoltage()
+        if status != 0 or not math.isfinite(value):
+            raise RuntimeError(f"Voltage measurement failed with status {hex(status)}")
+        return value
 
-        print(f"  Sample {i+1}: {scaled} ({raw_val:.6e} W)")
-        time.sleep(0.5)
+    def read_power(self) -> float:
+        status, value = self.instrument.measPower()
+        if status != 0 or not math.isfinite(value):
+            raise RuntimeError(f"Power measurement failed with status {hex(status)}")
+        return value
 
-    print("\nSession closed successfully.")
+    def close(self) -> None:
+        if self.instrument is not None:
+            self.instrument.Dispose()
+            self.instrument = None
+        if self._dll_directory is not None:
+            self._dll_directory.close()
+            self._dll_directory = None
 
-except Exception as e:
-    print(f"\nCommunication error: {e}")
-    print("Check that Optical Parameter Monitor is closed.")
-    sys.exit(1)
-finally:
-    if inst is not None:
-        inst.Dispose()
+
+def main() -> None:
+    print("=== THORLABS PM100USB LIVE VOLTAGE AND POWER CHECK ===")
+    meter = ThorlabsPM100()
+    try:
+        print(f"Connected to: {meter.connect()}")
+        meter.set_wavelength(WAVELENGTH_NM)
+        print(f"Wavelength: {WAVELENGTH_NM:g} nm")
+        for index in range(5):
+            voltage = meter.read_voltage()
+            power = meter.read_power()
+            print(f"Sample {index + 1}: {voltage:.6e} V, {power:.6e} W", flush=True)
+            time.sleep(0.5)
+    finally:
+        meter.close()
+
+
+if __name__ == "__main__":
+    main()
